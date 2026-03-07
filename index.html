@@ -4,265 +4,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video to SRT & Khmer TTS</title>
+    <title>Khmer AI Voice Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;700&display=swap');
-        body { font-family: 'Kantumruy Pro', sans-serif; background-color: #f3f4f6; }
-        .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body {
+            font-family: 'Kantumruy Pro', sans-serif;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+        }
     </style>
 </head>
 
-<body class="p-4 md:p-8">
-    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-        <div class="bg-blue-600 p-6 text-white text-center">
-            <h1 class="text-2xl font-bold">កម្មវិធីបំប្លែងវីដេអូទៅជា SRT និងសំឡេងខ្មែរ</h1>
-            <p class="text-sm opacity-90">បំប្លែងវីដេអូទៅជាអត្ថបទ បកប្រែ និងបង្កើតសំឡេងដោយស្វ័យប្រវត្តិ</p>
-            <div id="authStatus" class="inline-flex items-center mt-2 px-3 py-1 bg-blue-800 rounded-full text-[10px] space-x-2">
-                <div id="authDot" class="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span id="authText">ប្រព័ន្ធរួចរាល់ (Gemini 1.5 Flash)</span>
+<body class="bg-slate-50 min-h-screen">
+
+    <div class="max-w-3xl mx-auto px-4 py-12">
+        <div class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-blue-800 mb-2">Khmer AI Voice</h1>
+            <p class="text-gray-600 italic">បច្ចេកវិទ្យាបញ្ចេញសំឡេងខ្មែរដ៏ឆ្លាតវៃ</p>
+        </div>
+
+        <div class="glass border border-white shadow-xl rounded-3xl p-8 mb-6">
+            <!-- Input Text -->
+            <div class="mb-6">
+                <label class="block text-gray-700 font-bold mb-2">បញ្ចូលអត្ថបទរបស់អ្នក</label>
+                <textarea id="textInput" rows="5"
+                    class="w-full p-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-400 outline-none transition"
+                    placeholder="សូមសរសេរអ្វីមួយនៅទីនេះ..."></textarea>
+            </div>
+
+            <!-- Voice Selection -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-gray-700 font-bold mb-2">ជ្រើសរើសសំឡេង</label>
+                    <select id="voiceSelect" class="w-full p-3 border border-gray-200 rounded-xl bg-white">
+                        <option value="Kore">សំឡេងប្រុស (Kore - ទឹកដមធម្មតា)</option>
+                        <option value="Aoede">សំឡេងស្រី (Aoede - រស់រវើក)</option>
+                        <option value="Charon">សំឡេងប្រុស (Charon - ជ្រៅ)</option>
+                        <option value="Leda">សំឡេងស្រី (Leda - ទន់ភ្លន់)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-bold mb-2">ល្បឿននិយាយ</label>
+                    <select id="speedSelect" class="w-full p-3 border border-gray-200 rounded-xl bg-white">
+                        <option value="normal">ធម្មតា</option>
+                        <option value="slow">យឺត</option>
+                        <option value="fast">លឿន</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Generate Button -->
+            <button id="generateBtn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition duration-300 shadow-lg flex justify-center items-center">
+                <span id="btnText">បង្កើតសំឡេង</span>
+                <div id="loader"
+                    class="hidden ml-3 animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full">
+                </div>
+            </button>
+
+            <!-- Audio Player Section -->
+            <div id="audioSection" class="hidden mt-8 p-6 bg-blue-50 rounded-2xl border border-blue-100">
+                <p class="text-blue-800 font-bold mb-3">លទ្ធផលសំឡេង៖</p>
+                <audio id="audioPlayer" controls class="w-full mb-4"></audio>
+                <button onclick="downloadAudio()" class="text-sm text-blue-600 font-medium hover:underline">
+                    ទាញយកជាឯកសារ MP3/WAV
+                </button>
             </div>
         </div>
 
-        <div class="p-6 space-y-8">
-            <!-- Step 1: Video Upload -->
-            <section class="space-y-4">
-                <h2 class="text-lg font-semibold border-b pb-2 flex items-center">
-                    <span class="bg-blue-600 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs mr-2">1</span>
-                    បញ្ចូលវីដេអូ និងទាញយកអត្ថបទ
-                </h2>
-                <div class="flex flex-col space-y-2">
-                    <input type="file" id="videoInput" accept="video/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                    <button id="processVideoBtn" class="bg-blue-600 text-white py-2 px-6 rounded-lg font-medium hover:bg-blue-700 transition disabled:bg-gray-400">
-                        ចាប់ផ្តើមដំណើរការវិភាគ
-                    </button>
-                </div>
-                <div id="videoLoading" class="hidden flex items-center space-x-2 text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                    <div class="loading-spinner"></div>
-                    <span id="loadingStatus" class="text-sm">កំពុងវិភាគវីដេអូ...</span>
-                </div>
-            </section>
+        <!-- Error Message -->
+        <div id="errorBox" class="hidden bg-red-100 text-red-700 p-4 rounded-xl mb-6"></div>
 
-            <!-- Step 2: SRT Editor -->
-            <section class="space-y-4">
-                <h2 class="text-lg font-semibold border-b pb-2 flex items-center">
-                    <span class="bg-green-600 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs mr-2">2</span>
-                    អត្ថបទ SRT និងការបកប្រែ
-                </h2>
-                <textarea id="srtOutput" rows="8" class="w-full p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono leading-relaxed" placeholder="អត្ថបទ SRT នឹងបង្ហាញនៅទីនេះ..."></textarea>
-                <div class="flex flex-wrap gap-2">
-                    <button id="translateBtn" class="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition">បកប្រែជាភាសាខ្មែរ</button>
-                    <button id="downloadSrtBtn" class="bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition">ទាញយកឯកសារ .SRT</button>
-                </div>
-            </section>
-
-            <!-- Step 3: TTS -->
-            <section class="space-y-4">
-                <h2 class="text-lg font-semibold border-b pb-2 flex items-center">
-                    <span class="bg-purple-600 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs mr-2">3</span>
-                    ប្តូរអត្ថបទទៅជាសំឡេង
-                </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg border">
-                    <label class="flex items-center p-3 bg-white rounded border cursor-pointer hover:border-blue-500">
-                        <input type="radio" name="voice" value="Puck" checked class="w-4 h-4 text-blue-600">
-                        <div class="ml-3">
-                            <span class="block font-medium text-gray-700">សំឡេងបុរស (Puck)</span>
-                        </div>
-                    </label>
-                    <label class="flex items-center p-3 bg-white rounded border cursor-pointer hover:border-blue-500">
-                        <input type="radio" name="voice" value="Kore" class="w-4 h-4 text-blue-600">
-                        <div class="ml-3">
-                            <span class="block font-medium text-gray-700">សំឡេងស្ត្រី (Kore)</span>
-                        </div>
-                    </label>
-                </div>
-                <button id="generateAudioBtn" class="bg-purple-600 text-white py-3 px-8 rounded-lg font-bold hover:bg-purple-700 transition w-full shadow-md disabled:bg-gray-400">
-                    បង្កើតសំឡេងអាន (Generate Audio)
-                </button>
-                <div id="audioContainer" class="hidden mt-4 p-6 bg-blue-50 rounded-xl border border-blue-100 flex flex-col items-center">
-                    <audio id="audioPlayer" controls class="w-full"></audio>
-                </div>
-            </section>
+        <div class="text-center text-gray-400 text-sm">
+            &copy; 2024 Khmer AI Voice. រក្សាសិទ្ធិដោយ Gemini API.
         </div>
     </div>
 
-    <script type="module">
-        const apiKey = "AIzaSyDg16U80CbKK4AyhODNrkJwb17egzIn5X8"; 
-        
-        const apiVersion = "v1beta";
-        // ប្រើឈ្មោះម៉ូដែលស្តង់ដារបំផុត
-        const modelName = "gemini-1.5-flash"; 
-        const ttsModelName = "gemini-2.5-flash-preview-tts";
-
-        const processVideoBtn = document.getElementById('processVideoBtn');
-        const translateBtn = document.getElementById('translateBtn');
-        const generateAudioBtn = document.getElementById('generateAudioBtn');
-        const videoInput = document.getElementById('videoInput');
-        const videoLoading = document.getElementById('videoLoading');
-        const loadingStatus = document.getElementById('loadingStatus');
-        const srtOutput = document.getElementById('srtOutput');
+    <script>
+        const apiKey = "AIzaSyBuzzXo2nKOxy8Vx5PoPCPtCO04agYkPKI"; // API Key នឹងត្រូវផ្តល់ដោយស្វ័យប្រវត្តិក្នុង runtime
+        const textInput = document.getElementById('textInput');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const speedSelect = document.getElementById('speedSelect');
+        const generateBtn = document.getElementById('generateBtn');
+        const loader = document.getElementById('loader');
+        const btnText = document.getElementById('btnText');
+        const audioSection = document.getElementById('audioSection');
         const audioPlayer = document.getElementById('audioPlayer');
-        const audioContainer = document.getElementById('audioContainer');
+        const errorBox = document.getElementById('errorBox');
 
-        async function fetchWithRetry(url, options, maxRetries = 5) {
-            let delay = 1000;
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    const data = await response.json();
-                    if (response.ok) return data;
-                    
-                    if (response.status === 404) {
-                        // បើកលទ្ធភាពសាកល្បងជាមួយម៉ូដែលផ្សេងទៀត ប្រសិនបើរកមិនឃើញ
-                        console.warn("Model not found, checking alternatives...");
-                        return null; 
+        let audioBlob = null;
+
+        async function generateSpeech() {
+            const text = textInput.value.trim();
+            if (!text) {
+                showError("សូមបញ្ចូលអត្ថបទជាមុនសិន!");
+                return;
+            }
+
+            setLoading(true);
+            errorBox.classList.add('hidden');
+
+            const speedNote = speedSelect.value === 'slow' ? '[slowly] ' : (speedSelect.value === 'fast' ? '[fast] ' : '');
+            const promptText = `Say this in Khmer: ${speedNote}${text}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: {
+                                voiceName: voiceSelect.value
+                            }
+                        }
                     }
-                    
-                    if (response.status === 429 || response.status >= 500) {
-                        await new Promise(r => setTimeout(r, delay));
-                        delay *= 2;
-                        continue;
-                    }
-                    throw new Error(data.error?.message || "API Error");
-                } catch (e) {
-                    if (i === maxRetries - 1) throw e;
-                    await new Promise(r => setTimeout(r, delay));
-                    delay *= 2;
+                },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+
+            try {
+                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, payload);
+                const result = await response.json();
+
+                if (result.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
+                    const audioData = result.candidates[0].content.parts[0].inlineData.data;
+                    const mimeType = result.candidates[0].content.parts[0].inlineData.mimeType;
+
+                    // Convert PCM to WAV for playback
+                    const audioUrl = pcmToWavUrl(audioData, mimeType);
+                    audioPlayer.src = audioUrl;
+                    audioSection.classList.remove('hidden');
+                    audioPlayer.play();
+                } else {
+                    throw new Error("មិនអាចបង្កើតសំឡេងបានទេ។ សូមព្យាយាមម្តងទៀត។");
                 }
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                setLoading(false);
             }
         }
 
-        async function callGemini(parts) {
-            // បញ្ជីឈ្មោះម៉ូដែលដែលអាចប្រើបាន
-            const models = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-pro"];
-            
-            for (const m of models) {
-                const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${m}:generateContent?key=${apiKey}`;
-                const result = await fetchWithRetry(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts }] })
-                });
-                
-                if (result) return result;
-            }
-            throw new Error("មិនអាចទាក់ទងម៉ូដែល Gemini ណាមួយបានឡើយ។ សូមពិនិត្យ API Key ឬការតភ្ជាប់អ៊ីនធឺណិត។");
-        }
-
-        processVideoBtn.onclick = async () => {
-            const file = videoInput.files[0];
-            if (!file) return alert("សូមជ្រើសរើសវីដេអូ!");
-            
-            videoLoading.classList.remove('hidden');
-            processVideoBtn.disabled = true;
-            loadingStatus.innerText = "កំពុងវិភាគវីដេអូជាមួយ Gemini 1.5 Flash...";
-
-            const reader = new FileReader();
-            reader.onload = async () => {
+        async function fetchWithRetry(url, payload, retries = 5) {
+            for (let i = 0; i < retries; i++) {
                 try {
-                    const base64Data = reader.result.split(',')[1];
-                    const parts = [
-                        { text: "Extract spoken words and timing from this video and output in raw SRT format. No preamble, no markdown. If there's no speech, return 'No speech detected'." },
-                        { inlineData: { mimeType: file.type, data: base64Data } }
-                    ];
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) return response;
+                } catch (e) { }
+                await new Promise(res => setTimeout(res, Math.pow(2, i) * 1000));
+            }
+            throw new Error("ការតភ្ជាប់មានបញ្ហា។ សូមពិនិត្យអ៊ីនធឺណិតរបស់អ្នក។");
+        }
 
-                    const response = await callGemini(parts);
-                    let text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                    srtOutput.value = text.replace(/```srt|```/g, '').trim();
-                } catch (error) {
-                    alert("បញ្ហាវិភាគ៖ " + error.message);
-                } finally {
-                    videoLoading.classList.add('hidden');
-                    processVideoBtn.disabled = false;
+        function pcmToWavUrl(base64Data, mimeType) {
+            const binaryString = window.atob(base64Data);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            // Extract Sample Rate from mimeType (e.g., "audio/L16;codec=pcm;rate=24000")
+            const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+            const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1]) : 24000;
+
+            const wavHeader = createWavHeader(len, sampleRate);
+            const wavBuffer = new Uint8Array(wavHeader.length + len);
+            wavBuffer.set(wavHeader);
+            wavBuffer.set(bytes, wavHeader.length);
+
+            const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+            audioBlob = blob;
+            return URL.createObjectURL(blob);
+        }
+
+        function createWavHeader(dataLength, sampleRate) {
+            const buffer = new ArrayBuffer(44);
+            const view = new DataView(buffer);
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
                 }
             };
-            reader.readAsDataURL(file);
-        };
 
-        translateBtn.onclick = async () => {
-            if (!srtOutput.value) return;
-            translateBtn.innerText = "កំពុងបកប្រែ...";
-            translateBtn.disabled = true;
-            try {
-                const parts = [{ text: `Translate this SRT text to Khmer. Keep the same SRT timing and structure. Return only the SRT content:\n\n${srtOutput.value}` }];
-                const response = await callGemini(parts);
-                let translated = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                srtOutput.value = translated.replace(/```srt|```/g, '').trim();
-            } catch (error) {
-                alert("បញ្ហាបកប្រែ៖ " + error.message);
-            } finally {
-                translateBtn.innerText = "បកប្រែជាភាសាខ្មែរ";
-                translateBtn.disabled = false;
-            }
-        };
-
-        generateAudioBtn.onclick = async () => {
-            const textToSpeak = srtOutput.value
-                .replace(/\d+\r?\n\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}/g, '')
-                .replace(/\n+/g, ' ')
-                .trim();
-            
-            if (!textToSpeak) return alert("សូមបញ្ចូលអត្ថបទ SRT ជាមុនសិន!");
-
-            generateAudioBtn.innerText = "កំពុងបង្កើតសំឡេង...";
-            generateAudioBtn.disabled = true;
-            try {
-                const voice = document.querySelector('input[name="voice"]:checked').value;
-                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${ttsModelName}:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: textToSpeak }] }],
-                        generationConfig: {
-                            responseModalities: ["AUDIO"],
-                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } }
-                        }
-                    })
-                });
-                const audioB64 = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
-                if (audioB64) {
-                    const blob = pcmToWav(audioB64, 24000);
-                    audioPlayer.src = URL.createObjectURL(blob);
-                    audioContainer.classList.remove('hidden');
-                    audioPlayer.play();
-                }
-            } catch (error) {
-                alert("បញ្ហាសំឡេង៖ " + error.message);
-            } finally {
-                generateAudioBtn.innerText = "បង្កើតសំឡេងអាន (Generate Audio)";
-                generateAudioBtn.disabled = false;
-            }
-        };
-
-        document.getElementById('downloadSrtBtn').onclick = () => {
-            const blob = new Blob([srtOutput.value], { type: 'text/plain' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'subtitles_kh.srt';
-            a.click();
-        };
-
-        function pcmToWav(base64Pcm, sampleRate) {
-            const pcmData = Uint8Array.from(atob(base64Pcm), c => c.charCodeAt(0));
-            const buffer = new ArrayBuffer(44 + pcmData.length);
-            const view = new DataView(buffer);
-            const writeStr = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
-            writeStr(0, 'RIFF');
-            view.setUint32(4, 32 + pcmData.length, true);
-            writeStr(8, 'WAVEfmt ');
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + dataLength, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
             view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true); 
-            view.setUint16(22, 1, true); 
+            view.setUint16(20, 1, true); // PCM
+            view.setUint16(22, 1, true); // Mono
             view.setUint32(24, sampleRate, true);
             view.setUint32(28, sampleRate * 2, true);
             view.setUint16(32, 2, true);
             view.setUint16(34, 16, true);
-            writeStr(36, 'data');
-            view.setUint32(40, pcmData.length, true);
-            new Uint8Array(buffer, 44).set(pcmData);
-            return new Blob([buffer], { type: 'audio/wav' });
+            writeString(36, 'data');
+            view.setUint32(40, dataLength, true);
+
+            return new Uint8Array(buffer);
         }
+
+        function downloadAudio() {
+            if (!audioBlob) return;
+            const url = URL.createObjectURL(audioBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'khmer_ai_voice.wav';
+            a.click();
+        }
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.classList.remove('hidden');
+        }
+
+        function setLoading(isLoading) {
+            if (isLoading) {
+                loader.classList.remove('hidden');
+                btnText.textContent = "កំពុងបង្កើត...";
+                generateBtn.disabled = true;
+                generateBtn.classList.add('opacity-70');
+            } else {
+                loader.classList.add('hidden');
+                btnText.textContent = "បង្កើតសំឡេង";
+                generateBtn.disabled = false;
+                generateBtn.classList.remove('opacity-70');
+            }
+        }
+
+        generateBtn.addEventListener('click', generateSpeech);
     </script>
 </body>
+
 </html>
