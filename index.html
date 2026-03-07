@@ -21,7 +21,7 @@
             <p class="text-sm opacity-90">បំប្លែងវីដេអូទៅជាអត្ថបទ បកប្រែ និងបង្កើតសំឡេងដោយស្វ័យប្រវត្តិ</p>
             <div id="authStatus" class="inline-flex items-center mt-2 px-3 py-1 bg-blue-800 rounded-full text-[10px] space-x-2">
                 <div id="authDot" class="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span id="authText">ប្រព័ន្ធរួចរាល់ (Gemini 1.5 Flash - V1)</span>
+                <span id="authText">ប្រព័ន្ធរួចរាល់ (Gemini 1.5 Flash)</span>
             </div>
         </div>
 
@@ -88,10 +88,10 @@
     </div>
 
     <script type="module">
-        const apiKey = "AIzaSyD1VO1NzwF7kf9965OX6NtUxmg-oi6YzBc"; 
+        const apiKey = "AIzaSyDg16U80CbKK4AyhODNrkJwb17egzIn5X8"; 
         
-        // ប្រើប្រាស់ API v1 សម្រាប់ Stability
-        const apiVersion = "v1";
+        const apiVersion = "v1beta";
+        // ប្រើឈ្មោះម៉ូដែលស្តង់ដារបំផុត
         const modelName = "gemini-1.5-flash"; 
         const ttsModelName = "gemini-2.5-flash-preview-tts";
 
@@ -113,6 +113,12 @@
                     const data = await response.json();
                     if (response.ok) return data;
                     
+                    if (response.status === 404) {
+                        // បើកលទ្ធភាពសាកល្បងជាមួយម៉ូដែលផ្សេងទៀត ប្រសិនបើរកមិនឃើញ
+                        console.warn("Model not found, checking alternatives...");
+                        return null; 
+                    }
+                    
                     if (response.status === 429 || response.status >= 500) {
                         await new Promise(r => setTimeout(r, delay));
                         delay *= 2;
@@ -127,6 +133,23 @@
             }
         }
 
+        async function callGemini(parts) {
+            // បញ្ជីឈ្មោះម៉ូដែលដែលអាចប្រើបាន
+            const models = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-pro"];
+            
+            for (const m of models) {
+                const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${m}:generateContent?key=${apiKey}`;
+                const result = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts }] })
+                });
+                
+                if (result) return result;
+            }
+            throw new Error("មិនអាចទាក់ទងម៉ូដែល Gemini ណាមួយបានឡើយ។ សូមពិនិត្យ API Key ឬការតភ្ជាប់អ៊ីនធឺណិត។");
+        }
+
         processVideoBtn.onclick = async () => {
             const file = videoInput.files[0];
             if (!file) return alert("សូមជ្រើសរើសវីដេអូ!");
@@ -139,21 +162,12 @@
             reader.onload = async () => {
                 try {
                     const base64Data = reader.result.split(',')[1];
-                    const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelName}:generateContent?key=${apiKey}`;
-                    
-                    const response = await fetchWithRetry(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [
-                                    { text: "Extract spoken words and timing from this video and output in raw SRT format. No preamble, no markdown. If there's no speech, return 'No speech detected'." },
-                                    { inlineData: { mimeType: file.type, data: base64Data } }
-                                ]
-                            }]
-                        })
-                    });
+                    const parts = [
+                        { text: "Extract spoken words and timing from this video and output in raw SRT format. No preamble, no markdown. If there's no speech, return 'No speech detected'." },
+                        { inlineData: { mimeType: file.type, data: base64Data } }
+                    ];
 
+                    const response = await callGemini(parts);
                     let text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
                     srtOutput.value = text.replace(/```srt|```/g, '').trim();
                 } catch (error) {
@@ -171,16 +185,8 @@
             translateBtn.innerText = "កំពុងបកប្រែ...";
             translateBtn.disabled = true;
             try {
-                const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelName}:generateContent?key=${apiKey}`;
-                const response = await fetchWithRetry(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{ text: `Translate this SRT text to Khmer. Keep the same SRT timing and structure. Return only the SRT content:\n\n${srtOutput.value}` }]
-                        }]
-                    })
-                });
+                const parts = [{ text: `Translate this SRT text to Khmer. Keep the same SRT timing and structure. Return only the SRT content:\n\n${srtOutput.value}` }];
+                const response = await callGemini(parts);
                 let translated = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
                 srtOutput.value = translated.replace(/```srt|```/g, '').trim();
             } catch (error) {
@@ -203,7 +209,6 @@
             generateAudioBtn.disabled = true;
             try {
                 const voice = document.querySelector('input[name="voice"]:checked').value;
-                // TTS នៅតែប្រើ v1beta ដោយសារវាជា Feature ថ្មី
                 const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${ttsModelName}:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -261,6 +266,3 @@
     </script>
 </body>
 </html>
-
-
-
